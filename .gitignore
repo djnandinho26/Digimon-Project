@@ -1,0 +1,9 @@
+
+AuthServer/obj/*
+Build/*
+CharServer/obj/*
+GameServer/obj/*
+DigitalWorld/obj/*
+DigitalWorld/bin/*
+.vs/*
+*.rar

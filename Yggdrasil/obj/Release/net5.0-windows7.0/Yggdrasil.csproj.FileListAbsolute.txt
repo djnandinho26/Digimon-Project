@@ -1,0 +1,9 @@
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\bin\Release\net5.0-windows7.0\Yggdrasil.deps.json
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\bin\Release\net5.0-windows7.0\Yggdrasil.dll
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\bin\Release\net5.0-windows7.0\ref\Yggdrasil.dll
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\bin\Release\net5.0-windows7.0\Yggdrasil.pdb
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\obj\Release\net5.0-windows7.0\Yggdrasil.GeneratedMSBuildEditorConfig.editorconfig
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\obj\Release\net5.0-windows7.0\Yggdrasil.csproj.CoreCompileInputs.cache
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\obj\Release\net5.0-windows7.0\Yggdrasil.dll
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\obj\Release\net5.0-windows7.0\ref\Yggdrasil.dll
+D:\ProjetoDMO\Projeto-DMBR\Sources\DMO-net5\DigitalWorld\obj\Release\net5.0-windows7.0\Yggdrasil.pdb
