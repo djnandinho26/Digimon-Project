@@ -7,3 +7,6 @@ DigitalWorld/obj/*
 DigitalWorld/bin/*
 .vs/*
 *.rar
+Yggdrasil/bin/*
+Yggdrasil/obj/*
+*.bak

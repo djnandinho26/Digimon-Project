@@ -12,10 +12,10 @@ namespace Yggdrasil.Packets.Game
         /// Update Model?
         /// </summary>
         /// <param name="Slot"></param>
-        public UpdateEquipment(short InvSlot, short Slot)
+        public UpdateEquipment(uint UID, short Slot)
         {
             packet.Type(1310);
-            packet.WriteInt(InvSlot);
+            packet.WriteUInt(UID);
             packet.WriteInt(Slot);
             packet.WriteInt(0);
             packet.WriteInt(0);

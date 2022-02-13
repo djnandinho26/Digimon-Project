@@ -35,14 +35,8 @@ namespace AuthServer.Network
         {
             SysCons.LogInfo("Client connected: {0}", e.Client.ToString());
             e.Client.User = new AuthClient(e.Client);
-            AuthClient client = ((AuthClient)e.Client.User);
-            PacketWriter writer = new PacketWriter();
-            int time_t = (int)DateTime.Now.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-            e.Client.handshake = (short)(0 & 0xFFFF);
-            writer.Type(0xFFFF);
-            writer.WriteShort(e.Client.handshake);
-            if (e.Client.IsConnected) e.Client.Send(writer.Finalize());
-            //File.WriteAllBytes("C:\\conect.packet", writer.Finalize());
+            e.Client.Handshake = (short)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() & 0xFFFF);
+            e.Client.Send(new PacketFFFF(e.Client.Handshake));
         }
 
         private void AuthServ_OnDisconnect(object sender, ClientEventArgs e)
@@ -130,7 +124,7 @@ namespace AuthServer.Network
                     {
                         PacketWriter writer = new PacketWriter();
                         int time_t = (int)DateTime.Now.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-                        short data = (short)(client.Client.handshake ^ 0x7e41);
+                        short data = (short)(client.Client.Handshake ^ 0x7e41);
                         writer.Type(-2);
                         writer.WriteShort(data);
                         writer.WriteInt(time_t);

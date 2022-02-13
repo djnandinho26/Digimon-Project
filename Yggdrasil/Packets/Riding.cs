@@ -7,20 +7,20 @@ namespace Yggdrasil.Packets.Game
 {
     public class RidingMode : Packet
     {
-        public RidingMode(ushort hTamer, short hDigimon)
+        public RidingMode(uint hTamer, uint hDigimon)
         {
             packet.Type(1325);
             packet.WriteUInt(hTamer);
-            packet.WriteInt(hDigimon);
+            packet.WriteUInt(hDigimon);
         }
     }
     public class StopRideMode : Packet
     {
-        public StopRideMode(ushort hTamer, short hDigimon)
+        public StopRideMode(uint hTamer, uint hDigimon)
         {
             packet.Type(1326);
             packet.WriteUInt(hTamer);
-            packet.WriteInt(hDigimon);
+            packet.WriteUInt(hDigimon);
         }
     }
 }

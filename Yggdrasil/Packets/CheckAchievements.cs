@@ -23,11 +23,11 @@ namespace Yggdrasil.Packets.Game.Interface
 
     public class EquipAchievement : Packet
     {
-        public EquipAchievement(short title, int btamerhandle)
+        public EquipAchievement(short title, uint btamerhandle)
         {
 
             packet.Type(15);
-            packet.WriteInt(btamerhandle);
+            packet.WriteUInt(btamerhandle);
             packet.WriteShort(title);
         }
     }

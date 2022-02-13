@@ -1,6 +1,7 @@
 ﻿using System;
 using Yggdrasil.Entities;
 using Yggdrasil.Helpers;
+using Yggdrasil.Network;
 
 namespace Yggdrasil.Entities
 {
@@ -36,6 +37,9 @@ namespace Yggdrasil.Entities
         public int CharacterPos = 0;
         public int Starter = 0;
         public uint intHandle = 0;
+
+        public IClient? Client { get; set; } = null;
+        
         public ItemList Equipment = new ItemList(15);
         public int Level = 1;
         public CharacterModel Model = CharacterModel.NULL;
@@ -167,37 +171,20 @@ namespace Yggdrasil.Entities
         }
 
         /// <summary>
-        /// Handle to the Tamer's entity
+        /// UID to the Tamer's entity
         /// </summary>
         /// 
 
 
-        public ushort TamerHandle
-        {
-            get
-            {
-                byte[] b = new byte[] { (byte)((intHandle >> 32) & 0xFF), 0x80 };
-                return (ushort)(BitConverter.ToUInt16(b, 0));
-            }
-        }
+        public uint UID { get; set; } = 0;
 
-        public short BTamerHandle
-        {
-
-            get
-            {
-
-                byte[] b = new byte[] { (byte)((intHandle >> 32) & 0xFF), 0x00 };
-                return BitConverter.ToInt16(b, 0);
-            }
-        }
-
+        public uint IDX =>  UID - (2 << 14);
 
 
         /// <summary>
-        /// Handle to the Digimon's entity
+        /// UID to the Digimon's entity
         /// </summary>
-        public short DigimonHandle = 0;
+        public uint DigimonUID { get; set; }= 0;
 
         public MonsterEntity TargetMonster { get; set; }
     }

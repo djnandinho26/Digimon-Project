@@ -8,13 +8,13 @@ namespace Yggdrasil.Packets.Game
 {
     public class DespawnPlayer : Packet
     {
-        public DespawnPlayer(ushort hTamer, short hDigimon)
+        public DespawnPlayer(uint hTamer, uint hDigimon)
         {
             packet.Type(1006);
             packet.WriteShort(514);
             packet.WriteByte(0);
             packet.WriteUInt(hTamer);
-            packet.WriteInt(hDigimon);
+            packet.WriteUInt(hDigimon);
             packet.WriteByte(0);
         }
     }

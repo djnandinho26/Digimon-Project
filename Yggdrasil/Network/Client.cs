@@ -56,7 +56,7 @@ namespace Yggdrasil.Network
             get { return _Socket.Connected; }
         }
 
-        public short handshake
+        public short Handshake
         {
             get; set;
         }        
@@ -95,25 +95,13 @@ namespace Yggdrasil.Network
             get; set;
         }
 
-        public IPEndPoint RemoteEndPoint
-        {
-            get { return _Socket.RemoteEndPoint as IPEndPoint; }
-        }
+        public IPEndPoint RemoteEndPoint => _Socket.RemoteEndPoint as IPEndPoint;
 
-        public IPEndPoint LocalEndPoint
-        {
-            get { return _Socket.LocalEndPoint as IPEndPoint; }
-        }
+        public IPEndPoint LocalEndPoint => _Socket.LocalEndPoint as IPEndPoint;
 
-        public byte[] RecvBuffer
-        {
-            get { return _recvBuffer; }
-        }
+        public byte[] RecvBuffer => _recvBuffer;
 
-        public Socket Socket
-        {
-            get { return _Socket; }
-        }
+        public Socket Socket => _Socket;
 
         public IAsyncResult BeginReceive(AsyncCallback callback, object state)
         {
@@ -155,12 +143,17 @@ namespace Yggdrasil.Network
             }
         }
 
-        public int Send(byte[] buffer)
+        public void Send(byte[] buffer)
         {
             if (buffer == null) throw new ArgumentNullException("buffer");
-            return Send(buffer, 0, buffer.Length, SocketFlags.None);
+            Send(buffer, 0, buffer.Length, SocketFlags.None);
         }
 
+        public void Send(PacketWriter writer)
+        {
+            if (writer.Length < 6) return;
+            Send(writer.Finalize(), 0, writer.Length, SocketFlags.None);
+        }
         public int Send(byte[] buffer, SocketFlags flags)
         {
             if (buffer == null) throw new ArgumentNullException("buffer");

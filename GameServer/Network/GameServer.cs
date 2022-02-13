@@ -21,11 +21,9 @@ namespace GameServer.Network
 {
     public class GameServ : Server
     {
-        public List<GameClient> Tamers = new List<GameClient>();
+        public Dictionary<string, IUser> Tamers = new();
 
         public List<MonsterEntity> MonstersEntity = new List<MonsterEntity>();
-
-        static Random Rand = new Random();
 
         public Dictionary<int, GameMap> Maps = new Dictionary<int, GameMap>();
 
@@ -49,43 +47,24 @@ namespace GameServer.Network
         {
             SysCons.LogInfo("Client connected: {0}", e.Client.ToString());
             e.Client.User = new GameClient(e.Client);
-            GameClient client = ((GameClient)e.Client.User);
-            PacketWriter writer = new PacketWriter();
-            int time_t = (int)DateTime.Now.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-            e.Client.handshake = (short)(0 & 0xFFFF);
-            writer.Type(0xFFFF);
-            writer.WriteShort(0);
-            writer.WriteShort(0);
-            writer.WriteShort(0);
-            writer.WriteShort(0);
-            writer.WriteShort(0);
-            writer.WriteShort(0);
-            if (e.Client.IsConnected) e.Client.Send(writer.Finalize()); Tamers.Add(client);
+            e.Client.Handshake = 0;
+            e.Client.Send(new PacketFFFF(e.Client.Handshake)); 
         }
 
         private void GameServer_OnDisconnect(object sender, ClientEventArgs e)
         {
-            GameClient client = ((GameClient)e.Client.User);
-            _gameDatabase.SaveTamer(client);
-            _gameDatabase.SaveTamerPosition(client);
-            Tamers.Remove(client);
-            Maps[client.Tamer.Location.Map].Leave(client);
+            var client = e.Client;
+            if (client == null) return;
+            Tamers.Remove(client.Tamer.Name);
+            Maps[client.Tamer.Location.Map].Logout.Enqueue(client.Tamer);
             //Maps[client.Tamer.Location.Map].Leave(client);
             SysCons.LogInfo("Client disconnected: {0}", e.Client.ToString());
         }
 
         private void GameServer_OnDataReceived(object sender, ClientEventArgs e, byte[] data)
         {
-            PacketReader packet = null;
-            try
-            {
-                packet = new PacketReader(data);
-            }
-            catch
-            {
-                SysCons.LogError("Checksum failed");
-                return;
-            }
+            if (e.Client == null) return;
+            PacketReader packet = new PacketReader(data);
             PacketProcess((GameClient)e.Client.User, packet);
         }
 
@@ -95,7 +74,7 @@ namespace GameServer.Network
             AchieveDB.Load("Data\\Achieve.bin");
             AddExpDB.Load("Data\\AddExp.bin");
             BattleTableDB.Load("Data\\BattleTable.bin");
-            BuffDB.Load("Data\\Buff.bin");
+            //BuffDB.Load("Data\\Buff.bin");
             CashShopDB.Load("Data\\CashShop.bin");
             //CharCreateTableDB.Load("Data\\CharCreateTable.bin");
             //CuidDBCuidDB.Load("Data\\Cuid.bin");
@@ -152,17 +131,9 @@ namespace GameServer.Network
             SysCons.LogInfo("GameServer is listening on {0}:{1}...", HostIP, HostPort);
         }
 
-        public GameClient FindClient(string Name)
+        public Character? FindClient(string Name)
         {
-            GameClient _client = null;
-            foreach (GameClient client in Tamers)
-            {
-                if (client.Tamer.Name == Name || client.Client._Socket.Connected)
-                    _client = client;
-                else
-                    return _client;
-            }
-            return _client;
+            return Tamers.TryGetValue(Name, out var tamer) ? tamer.Client?.Tamer : null;
         }
 
         public void SpawnMonsters()
@@ -196,12 +167,8 @@ namespace GameServer.Network
             if (client.AccessLevel <= 0) return;
             if (cmd.Length == 0) return;
             Character Tamer = client.Tamer;
-            GameMap ActiveMap = null;
+            GameMap ActiveMap = Maps[client.Tamer.Location.Map];
             IClient Client = client.Client;
-            if (Tamer != null && Tamer.Partner != null)
-            {
-                ActiveMap = Maps[client.Tamer.Location.Map];
-            }
             switch (cmd[0])
             {
                 case "item":
@@ -216,13 +183,13 @@ namespace GameServer.Network
                         }
                         catch
                         {
-                            Client.Send(new ChatNormal(Tamer.TamerHandle, string.Format("Enter id.")).ToArray());
+                            Client.Send(new ChatNormal(Tamer.UID, string.Format("Enter id.")).ToArray());
                         }
                         Item e = new Item();
                         e.ItemId = fullId;
                         if (e.ItemData == null)
                         {
-                            Client.Send(new ChatNormal(Tamer.TamerHandle, string.Format("An item with the id {0} was not found.", fullId)).ToArray());
+                            Client.Send(new ChatNormal(Tamer.UID, string.Format("An item with the id {0} was not found.", fullId)).ToArray());
                             return;
                         }
 
@@ -262,52 +229,7 @@ namespace GameServer.Network
                         Client.Send(new BaseChat(ChatType.Shout, "SERVER: ", string.Format("You are at {0}", Tamer.Location)).ToArray());
                         break;
                     }
-                case "future":
-                    {
-                        Digimon mon = Tamer.Partner;
-                        mon.CurrentForm = 71097;
-                        DigimonData data = DigimonListDB.GetDigimon(71097);
-                        //mon.Model = GetModel(mon.ProperModel(), mon.byteHandle);
-                        mon.Model = GetModel(mon.ProperModel());
-                        PacketWriter writer = new PacketWriter();
-                        writer.Type(1028);
-                        writer.WriteInt(Tamer.DigimonHandle);
-                        writer.WriteInt(Tamer.TamerHandle);
-                        writer.WriteInt(71097);
-                        writer.WriteByte((byte)4);
-                        writer.WriteShort(0xFF);
-                        writer.WriteShort(0);
-                        writer.WriteByte(0);
-                        writer.WriteShort(6692);
-                        writer.WriteShort(6694);
-                        PacketWriter writer3 = writeStats(Tamer, data);
-                        ActiveMap.Send(writer.Finalize());
-                        Client.Send(writer3.Finalize());
-                        break;
-                    }
-                case "awaken":
-                    {
-                        Digimon mon = Tamer.Partner;
-                        mon.CurrentForm = 75908;
-                        DigimonData data = DigimonListDB.GetDigimon(75908);
-                        //mon.Model = GetModel(mon.ProperModel(), mon.byteHandle);
-                        mon.Model = GetModel(mon.ProperModel());
-                        PacketWriter writer = new PacketWriter();
-                        writer.Type(1028);
-                        writer.WriteInt(Tamer.DigimonHandle);
-                        writer.WriteInt(Tamer.TamerHandle);
-                        writer.WriteInt(75908);
-                        writer.WriteByte((byte)4);
-                        writer.WriteShort(0xFF);
-                        writer.WriteShort(0);
-                        writer.WriteByte(0);
-                        writer.WriteShort(6692);
-                        writer.WriteShort(6694);
-                        PacketWriter writer3 = writeStats(Tamer, data);
-                        ActiveMap.Send(writer.Finalize());
-                        Client.Send(writer3.Finalize());
-                        break;
-                    }
+                
                 case "tamerset":
                     {
                         int value = 0;
@@ -319,7 +241,7 @@ namespace GameServer.Network
                                 if (value <= 120)
                                 {
                                     Tamer.Level = (int)value;
-                                    ActiveMap.Send(new UpdateLevel(Tamer.TamerHandle, (byte)value).ToArray());
+                                    ActiveMap.Send(new UpdateLevel(Tamer.UID, (byte)value).ToArray());
                                 }
                                 else
                                     return;
@@ -342,8 +264,8 @@ namespace GameServer.Network
                                 Tamer.MS = (short)value;
                                 PacketWriter writer = new PacketWriter();
                                 writer.Type(9905);
-                                writer.WriteInt(client.Tamer.TamerHandle);
-                                writer.WriteInt(client.Tamer.Partner.Handle);
+                                writer.WriteUInt(client.Tamer.UID);
+                                writer.WriteUInt(client.Tamer.Partner.UID);
                                 writer.WriteShort((short)value);
                                 writer.WriteShort((short)value);
                                 writer.WriteShort(0);
@@ -374,7 +296,7 @@ namespace GameServer.Network
                                 }
                                 break;
                             case "size":
-                                ActiveMap.Send(new ChangeSize(Tamer.TamerHandle, (int)value, 0).ToArray());
+                                ActiveMap.Send(new ChangeSize(Tamer.UID, (int)value, 0).ToArray());
                                 //Tamer.Partner.Stats.MaxHP = (short)((decimal)Tamer.Partner.Stats.HP * ((ushort)value / 10000));
                                 //Tamer.Partner.Stats.HP = (short)((decimal)Tamer.Partner.Stats.HP * ((ushort)value / 10000));
                                 //Tamer.Partner.Stats.MaxDS = (short)((decimal)Tamer.Partner.Stats.DS * ((ushort)value / 10000));
@@ -442,7 +364,7 @@ namespace GameServer.Network
                             case "lv":
                             case "level":
                                 Activemon.Level = (int)value;
-                                ActiveMap.Send(new UpdateLevel(Tamer.Partner.Handle, (byte)value).ToArray());
+                                ActiveMap.Send(new UpdateLevel(Tamer.Partner.UID, (byte)value).ToArray());
                                 break;
                             case "exp":
                                 Tamer.Partner.EXP = value;
@@ -479,7 +401,7 @@ namespace GameServer.Network
                                 Tamer.Partner.Name = cmd[2]; break;
                             case "size":
                                 Tamer.Partner.Size = (short)value;
-                                ActiveMap.Send(new ChangeSize((ushort)Activemon.Handle, (int)value, 0).ToArray());
+                                ActiveMap.Send(new ChangeSize((ushort)Activemon.UID, (int)value, 0).ToArray());
                                 break;
                             case "scale":
                                 Tamer.Partner.Scale = (byte)value; break;
@@ -493,16 +415,6 @@ namespace GameServer.Network
                         }
                         break;
                     }
-                case "tamers":
-                    {
-                        foreach (GameClient _client in Tamers)
-                        {
-                            Client.Send(new Message(_client.Tamer.Name.ToString()).ToArray());
-                            Client.Send(new Message(_client.Tamer.TamerHandle.ToString()).ToArray());
-                            Client.Send(new Message(_client.Tamer.DigimonHandle.ToString()).ToArray());
-                        }
-                        break;
-                    }
                 case "rld":
                 case "reload":
                     {
@@ -512,24 +424,13 @@ namespace GameServer.Network
                     }
                 case "fix":
                     {
-                        ActiveMap.Leave(client);
+                        ActiveMap.Logout.Enqueue(client.Tamer);
                         Position ploc = new Position(3, 19996, 17810);
                         Client.Send(new MapChange(HostIP, HostPort,
                             ploc.Map, ploc.PosX, ploc.PosY, ploc.MapName).ToArray());
                         break;
                     }
-                case "find":
-                    {
-                        GameClient _client = FindClient(string.Join(" ", cmd, 1, cmd.Length - 1));
 
-                        if (_client != null)
-                        {
-                            Client.Send(new Message(_client.Tamer.Name).ToArray());
-                        }
-                        else
-                            Client.Send(new Message("Tamer not found").ToArray());
-                        break;
-                    }
                 case "ann":
                     {
                         Client.SendToAll(new BaseChat().Megaphone(Tamer.Name, string.Join(" ", cmd, 1, cmd.Length - 1), 52, (short)Tamer.Level).ToArray());
@@ -608,7 +509,7 @@ namespace GameServer.Network
                         Digimon Mob = _gameDatabase.GetDigimon(value);
                         if (Mob == null)
                         {
-                           //client.Send(new BaseChat(ChatType.Normal, Tamer.DigimonHandle, string.Format("Mob {0} was not found.", value)));
+                           //client.Send(new BaseChat(ChatType.Normal, Tamer.DigimonUID, string.Format("Mob {0} was not found.", value)));
                         }
                        uint id = GetModel((uint)(64 + (Mob.Model * 128)) << 8);
                        GameMap cMap = Maps[Tamer.Location.Map];
@@ -639,7 +540,7 @@ namespace GameServer.Network
         {
             PacketWriter writer = new PacketWriter();
             writer.Type(4000);
-            writer.WriteInt(Tamer.TamerHandle);
+            writer.WriteUInt(Tamer.UID);
             writer.WriteUShort(BuffID);
             writer.WriteInt(time_t);
             return writer;
@@ -715,268 +616,14 @@ namespace GameServer.Network
             uint hEntity = Model;
             return (uint)(hEntity + Id);
         }
-
-        public static uint GetModel(uint Model)
-        {
-            uint hEntity = Model;
-            return (uint)(hEntity + Rand.Next(1, 255));
-        }
-
+        
         public static short GetHandle(uint Model, byte type)
         {
             byte[] b = new byte[] { (byte)((Model >> 32) & 0xFF), type };
             return BitConverter.ToInt16(b, 0);
         }
+        
 
-        public static void MakeHandles(Character Tamer, uint time_t)
-        {
-            Tamer.intHandle = (uint)(Tamer.ProperModel + Rand.Next(1, 255));
-            Tamer.DigimonHandle = (short)(16000 + Rand.Next(1, 2000));
-            for (int i = 0; i < Tamer.DigimonList.Length; i++)
-            {
-                if (Tamer.DigimonList[i] == null) continue;
-                Digimon mon = Tamer.DigimonList[i];
-                mon.Model = GetModel(mon.ProperModel());
-                mon.Handle = Tamer.DigimonHandle;
-                //mon.intHandle = (uint)(mon.ProperModel() + Rand.Next(1, 255));
-            }
-        }
-
-        public class GameMap
-        {
-            public int MapId = 0;
-            public List<GameClient> Tamers = new List<GameClient>();
-            public List<MonsterEntity> Monsters = new List<MonsterEntity>();
-            private Thread tMonitor = null;
-            private Thread cMonsters = null;
-            public int[] Handlers;
-            GameMap ActiveMap = null;
-
-
-            public GameMap(int MapId)
-            {
-                this.MapId = MapId;
-                tMonitor = new Thread(new ThreadStart(Monitor));
-                tMonitor.IsBackground = true;
-                //tMonitor.Start();
-                cMonsters = new Thread(new ThreadStart(CheckMonsters));
-                cMonsters.IsBackground = true;
-                cMonsters.Start();
-            }
-
-            public void SpawnMonsters(GameClient client)
-            {
-                PacketWriter writer = new PacketWriter();
-
-                List<MonsterEntity> AliveMonsters = new List<MonsterEntity>();
-
-                foreach (MonsterEntity entity in Monsters)
-                {
-                    if (entity.isAlive)
-                    {
-                        AliveMonsters.Add(entity);
-                    }
-                }
-
-                if (AliveMonsters.Count != 0 || AliveMonsters.Count != null)
-                {
-                    writer.Type(1006);
-                    writer.WriteByte(3);
-                    writer.WriteShort((short)AliveMonsters.Count);
-                    for (int i = 0; i < AliveMonsters.Count; i++)
-                    {
-                        MonsterEntity monster = AliveMonsters[i];
-                        writer.WriteInt(monster.Location.PosX);
-                        writer.WriteInt(monster.Location.PosY);
-                        writer.WriteInt(monster.Handle);
-                        writer.WriteInt(monster.Species);
-                        writer.WriteInt(monster.Location.PosX + monster.Collision);
-                        writer.WriteInt(monster.Location.PosY);
-                        writer.WriteByte(0xff);
-                        writer.WriteShort((short)monster.Level);
-                        writer.WriteShort(2);
-                        writer.WriteInt(0);
-                        writer.WriteInt(0);
-                        writer.WriteInt(0);
-                        writer.WriteByte(0);
-                    }
-                }
-                else
-                {
-                    return;
-                }
-                writer.WriteInt(0);
-                client.Client.Send(writer.Finalize());
-            }
-
-            public void Enter(GameClient client)
-            {
-                Tamers.Add(client);
-            }
-
-            public void Leave(GameClient client)
-            {
-                Tamers.Remove(client);
-                Send(new DespawnPlayer(client.Tamer.TamerHandle, client.Tamer.DigimonHandle).ToArray());
-            }
-
-            private void CheckMonsters()
-            {
-                while (true)
-                {
-                    foreach (MonsterEntity entity in Monsters)
-                    {
-                        if (entity.isAlive)
-                        {
-                            //Console.WriteLine("Monster is Alive " + entity.Handle.ToString());
-                        }
-                        /*else
-                        {
-                            TaskCompletionSource<bool> tcs = null;
-                            Console.WriteLine("Monster is dead " + entity.Handle.ToString());
-                            //entity.HP = entity.MaxHP;
-                            PacketWriter writer = new PacketWriter();
-                            writer.Type(1006);
-                            writer.WriteByte(3);
-                            writer.WriteShort(1);
-                            writer.WriteInt(entity.Location.PosX);
-                            writer.WriteInt(entity.Location.PosY);
-                            writer.WriteInt(entity.Handle);
-                            writer.WriteInt(entity.Species);
-                            writer.WriteInt(entity.Location.PosX + entity.Collision + 50);
-                            writer.WriteInt(entity.Location.PosY + 50);
-                            writer.WriteByte(0xff);
-                            writer.WriteShort((short)entity.Level);
-                            writer.WriteShort(2);
-                            writer.WriteInt(0);
-                            writer.WriteInt(0);
-                            writer.WriteInt(0);
-                            writer.WriteByte(0);
-                            Send(writer.Finalize());
-                            Console.WriteLine("Monster is Alive " + entity.Handle.ToString());
-                        }*/
-                    }
-                    Thread.Sleep(5 * 1000);
-                }
-            }
-
-            private void Monitor()
-            {
-                while (true)
-                {
-                    lock (Tamers)
-                    {
-                        List<GameClient> ToRemove = new List<GameClient>();
-                        foreach (GameClient Client in Tamers)
-                        {
-                            if (Client.Tamer.Location.Map != MapId || !Client.Client._Socket.Connected)
-                            {
-                                ToRemove.Add(Client);
-                            }
-                            else
-                            {
-                                Character Tamer = Client.Tamer;
-                                Digimon Partner = Tamer.Partner;
-
-                                for (int i = 0; i < Tamer.DigimonList.Length; i++)
-                                {
-                                    //Check if in battle?
-                                    if (Tamer.DigimonList[i] == null) continue;
-                                    Digimon digimon = Tamer.DigimonList[i];
-
-                                    //Console.WriteLine("Recovering {0}...", digimon.Name);
-                                    digimon.Stats.Recover();
-                                }
-
-                                try
-                                {
-                                    //Send(new Status(Tamer.DigimonHandle, Partner.Stats));
-                                }
-                                catch
-                                {
-                                    ToRemove.Add(Client);
-                                }
-                            }
-                        }
-
-                        foreach (GameClient Client in ToRemove)
-                        {
-                            Tamers.Remove(Client);
-                            this.Send(new DespawnPlayer(Client.Tamer.TamerHandle, Client.Tamer.DigimonHandle).ToArray());
-                        }
-                    }
-
-                    Thread.Sleep(30 * 1000); //Sleep 30s
-                }
-            }
-
-            public void Spawn(GameClient client)
-            {
-                Character Tamer = client.Tamer;
-
-                foreach (GameClient other in Tamers)
-                {
-                    if (other == client) continue;
-                    PacketWriter writer = new PacketWriter();
-                    writer.Type(9905);
-                    writer.WriteInt(Tamer.TamerHandle);
-                    writer.WriteInt(Tamer.Partner.Handle);
-                    writer.WriteShort(1493);
-                    writer.WriteShort(1493);
-                    writer.WriteInt(0);
-                    writer.WriteInt(0);
-                    PacketWriter writer2 = new PacketWriter();
-                    writer2.Type(9905);
-                    writer2.WriteInt(other.Tamer.TamerHandle);
-                    writer2.WriteInt(other.Tamer.Partner.Handle);
-                    writer2.WriteShort(1493);
-                    writer2.WriteShort(1493);
-                    writer2.WriteInt(0);
-                    writer2.WriteInt(0);
-                    other.Client.Send(new SpawnPlayer(Tamer, Tamer.TamerHandle).ToArray());
-                    other.Client.Send(writer.Finalize());
-                    client.Client.Send(new SpawnPlayer(other.Tamer, Tamer.TamerHandle).ToArray());
-                    client.Client.Send(writer2.Finalize());
-                    //client.Send(new UpdateMS(other.Tamer.TamerHandle, other.Tamer.DigimonHandle, (short)other.Tamer.MS, other.Tamer.Partner.Stats.MS));
-                }
-            }
-            public void KillMonster(int handle)
-            {
-                var entity = Monsters.FirstOrDefault(monster => monster.Handle == handle);
-                if (entity != null)
-                {
-                    entity.HP = 0;
-                }
-            }
-
-            public int ReduceMonsterHealth(int handle, int damage)
-            {
-                var entity = Monsters.FirstOrDefault(monster => monster.Handle == handle);
-                if (entity != null)
-                {
-                    var monsterNewHealth = entity.HP - damage;
-                    if (monsterNewHealth < 0)
-                    {
-                        KillMonster(handle);
-                    }
-                    else
-                    {
-                        entity.HP = monsterNewHealth;
-                        return entity.HP;
-                    }
-                }
-
-                return 0;
-            }
-
-            public void Send(byte[] buffer)
-            {
-                foreach (GameClient _client in Tamers)
-                {
-                    _client.Client.Send(buffer);
-                }
-            }
-        }
 
 
         /// <summary>
@@ -999,7 +646,7 @@ namespace GameServer.Network
 
         public void PacketProcess(GameClient client, PacketReader packet)
         {
-            Character Tamer = client.Tamer;
+            var Tamer = client.Tamer;
             Digimon ActiveMon = null;
             GameMap ActiveMap = null;
             Party ActiveParty = null;
@@ -1007,14 +654,9 @@ namespace GameServer.Network
             IClient Client = client.Client;
 
             PacketDefinitions.LogPacketData(packet);
-
-            if (Tamer != null && Tamer.Partner != null)
-            {
-                ActiveMon = Tamer.Partner;
-                ActiveMap = Maps[client.Tamer.Location.Map];
-                client.ActiveMap = Maps[client.Tamer.Location.Map];
-
-            }
+            ActiveMon = Tamer.Partner;
+            ActiveMap = Maps[client.Tamer.Location.Map];
+            client.ActiveMap = Maps[client.Tamer.Location.Map];
             switch (packet.Type)
             {
                 //11002 ACCEPT QUEST
@@ -1044,7 +686,7 @@ namespace GameServer.Network
                 case 15: //equipping titles
                     {
                         short title = packet.ReadShort();
-                        Packet Equip = new EquipAchievement(title, Tamer.BTamerHandle);
+                        Packet Equip = new EquipAchievement(title, Tamer.IDX);
                         Tamer.CurrentTitle = title;
                         ActiveMap.Send(Equip.ToArray());
                         break;
@@ -1108,8 +750,8 @@ namespace GameServer.Network
                         w3.WriteByte(1);
                         PacketWriter w4 = new PacketWriter();
                         w4.Type(9905);
-                        w4.WriteInt(Tamer.TamerHandle);
-                        w4.WriteInt(Tamer.Partner.Handle);
+                        w4.WriteUInt(Tamer.UID);
+                        w4.WriteUInt(Tamer.Partner.UID);
                         w4.WriteShort(1493);
                         w4.WriteShort(1493);
                         w4.WriteInt(0);
@@ -1143,7 +785,7 @@ namespace GameServer.Network
 
                         PacketWriter w8 = new PacketWriter();
                         w8.Type(1040);
-                        w8.WriteInt(Tamer.TamerHandle);
+                        w8.WriteUInt(Tamer.UID);
                         w8.WriteByte(0);
 
                         Client.Send(Combine(EXP.Finalize(), w2.Finalize(), w3.Finalize(), w4.Finalize(), w5.Finalize(), w6.Finalize(), Inventory.ToArray(), Storage.ToArray(), AccountS.Finalize(), crowns.ToArray(), new Channels().ToArray()));
@@ -1154,9 +796,9 @@ namespace GameServer.Network
                             Client.Send(writer3.Finalize());
                         }
 
-                        ActiveMap.Spawn(client);
+                        ActiveMap.Spawn(client.Tamer);
 
-                        ActiveMap.SpawnMonsters(client);
+                        ActiveMap.SpawnMonsters(client.Tamer);
 
                         break;
                     }
@@ -1167,17 +809,17 @@ namespace GameServer.Network
                         int X = packet.ReadInt();
                         int Y = packet.ReadInt();
                         float dir = packet.ReadFloat();
-                        if (handle == Tamer.TamerHandle)
+                        if (handle == Tamer.UID)
                         {
                             Tamer.Location.PosY = Y;
                             Tamer.Location.PosX = X;
-                            Maps[Tamer.Location.Map].Send(new MovePlayer(Tamer, X, Y).ToArray());
                         }
-                        else if (handle == Tamer.Partner.Handle)
+                        else if (handle == Tamer.Partner.UID)
                         {
                             Tamer.Partner.Location.PosX = X;
                             Tamer.Partner.Location.PosY = Y;
                         }
+                        Maps[Tamer.Location.Map].Send(new MovePlayer(Tamer, X, Y).ToArray(), Tamer.UID);
                         break;
                     }
                 case 1008: //CHATING ?
@@ -1185,7 +827,7 @@ namespace GameServer.Network
 
                         string text = packet.ReadString();
 
-                        Packet ChatNormal = new ChatNormal(Tamer.TamerHandle, text);
+                        Packet ChatNormal = new ChatNormal(Tamer.UID, text);
                         SysCons.LogInfo("[{0}]: {1}", Tamer.Name, text);
                         if (text.StartsWith("."))
                         {
@@ -1202,10 +844,7 @@ namespace GameServer.Network
                         //12 00 68 09 -- Name -- byte 0
                         string player = packet.ReadString();
                         string message = packet.ReadString();
-
-                        GameClient other = null;
-                        other = FindClient(player);
-
+                        Character? other = FindClient(player);
                         if (other != null)
                         {
                             //other.Client.Send(new Whisper(Tamer.Name, player, message, 3).ToArray());
@@ -1310,8 +949,7 @@ namespace GameServer.Network
                         PacketWriter writer = new PacketWriter();
 
                         writer.Type(1034);
-                        writer.WriteInt(Tamer.Partner.Handle);
-
+                        writer.WriteUInt(Tamer.Partner.UID);
                         ActiveMap.Send(writer.Finalize());
                         break;
                     }
@@ -1319,7 +957,7 @@ namespace GameServer.Network
                     {
                         int h1 = packet.ReadInt();
                         int h2 = packet.ReadInt();
-                        if (h1 != Tamer.TamerHandle)
+                        if (h1 != Tamer.UID)
                         {
                             Tamer.Partner.CurrentForm = Tamer.Partner.Species;
                             _gameDatabase.SaveTamer(client);
@@ -1327,8 +965,8 @@ namespace GameServer.Network
                             writer.Type(1006);
                             writer.WriteShort(514);
                             writer.WriteByte(0);
-                            writer.WriteUInt(Tamer.TamerHandle);
-                            writer.WriteInt(Tamer.Partner.Handle);
+                            writer.WriteUInt(Tamer.UID);
+                            writer.WriteUInt(Tamer.Partner.UID);
                             writer.WriteByte(0);
                             Client.Send(writer.Finalize());
                         }
@@ -1374,7 +1012,7 @@ namespace GameServer.Network
 
                         PacketWriter writer = new PacketWriter();
                         writer.Type(1023);
-                        writer.WriteInt(Tamer.Partner.Handle);
+                        writer.WriteUInt(Tamer.Partner.UID);
                         writer.WriteInt(unknown);
                         writer.WriteInt(unknown2);
                         break;
@@ -1385,7 +1023,7 @@ namespace GameServer.Network
                         int stage = packet.ReadByte();
 
                         SysCons.LogInfo(dhandle.ToString());
-                        SysCons.LogInfo(Tamer.Partner.Handle.ToString());
+                        SysCons.LogInfo(Tamer.Partner.UID.ToString());
                         Digimon mon = Tamer.Partner;
                         EvolutionLine evolveLine = DigimonEvoDB.GetLine(mon.Species, mon.CurrentForm);
 
@@ -1408,12 +1046,11 @@ namespace GameServer.Network
                         }
                         mon.CurrentForm = evolveLine.Line[1][stage];
                         //mon.Model = GetModel(mon.ProperModel(), mon.byteHandle);
-                        mon.Model = GetModel(mon.ProperModel());
                         DigimonData data = DigimonListDB.GetDigimon(evolveLine.Line[1][stage]);
                         PacketWriter writer = new PacketWriter();
                         writer.Type(1028);
-                        writer.WriteInt(Tamer.DigimonHandle);
-                        writer.WriteInt(Tamer.TamerHandle);
+                        writer.WriteUInt(Tamer.DigimonUID);
+                        writer.WriteUInt(Tamer.UID);
                         writer.WriteInt(evolveLine.Line[1][stage]);
                         writer.WriteByte((byte)stage);
                         writer.WriteShort(0xFF);
@@ -1457,9 +1094,9 @@ namespace GameServer.Network
                         //int res = Opt.GameServer.HatchRates.Hatch(Tamer.IncubatorLevel);
                         Tamer.IncubatorLevel++;
                         if (Tamer.IncubatorLevel < 3)
-                            Client.Send(new DataInputSuccess(Tamer.TamerHandle).ToArray());
+                            Client.Send(new DataInputSuccess(Tamer.UID).ToArray());
                         else
-                            Client.Send(new DataInputSuccess(Tamer.TamerHandle, (byte)Tamer.IncubatorLevel).ToArray());
+                            Client.Send(new DataInputSuccess(Tamer.UID, (byte)Tamer.IncubatorLevel).ToArray());
                         break;
                     }
                 case 1038:
@@ -1477,7 +1114,6 @@ namespace GameServer.Network
 14000, 0);
                             if (digiId == 0) return;
                             Digimon mon = _gameDatabase.GetDigimon(digiId);
-                            mon.Model = GetModel(mon.ProperModel());
 
                             for (int i = 0; i < Tamer.DigimonList.Length; i++)
                             {
@@ -1524,14 +1160,14 @@ namespace GameServer.Network
 
 
                         Packet UpdateStats = new UpdateStats(Tamer, DigimonListDB.GetDigimon(target.Species));
-                        Packet Switch = new Switch(current.Handle, slot, current, target);
+                        Packet Switch = new Switch(current.UID, slot, current, target);
 
                         Client.Send(UpdateStats.ToArray());
                         ActiveMap.Send(Switch.ToArray());
 
-
                         Tamer.Partner = target;
                         Tamer.DigimonList[slot] = current;
+                        Tamer.DigimonList[slot].UID = Tamer.DigimonUID;
                         Tamer.DigimonList[0] = target;
                         break;
                     }
@@ -1544,7 +1180,7 @@ namespace GameServer.Network
                         int ch = packet.ReadInt();
                         //SqlDB.SaveTamer(client);
                         //client.Send(new MapChange(Opt.GameServer.IP.ToString(), Opt.GameServer.Port, Tamer.Location.Map, Tamer.Location.PosX, Tamer.Location.PosY, Tamer.Location.MapName));
-                        //client.Send(new SendHandle(Tamer.TamerHandle));
+                        //client.Send(new SendHandle(Tamer.UID));
                         break;
                     }
                 case 1051:
@@ -1582,35 +1218,8 @@ namespace GameServer.Network
                         break;
                     }
                 case 1057: //JUMP BOOSTER
-                    {
-                        byte u1 = packet.ReadByte();
-                        short slot = packet.ReadShort();
-                        short mapid = packet.ReadShort();
-
-                        SysCons.LogInfo($"{u1}, {mapid}");
-
-                        if (Tamer.Inventory[slot].Amount <= 1)
-                        {
-                            Tamer.Inventory.Remove(slot);
-                        }
-                        else if (Tamer.Inventory[slot].Amount > 1)
-                        {
-                            Tamer.Inventory[slot].Amount -= 1;
-                        }
-
-                        Region Region = MapRegionDB.GetID(mapid, u1);
-                        if (Region != null)
-                        {
-                            MapData map = MapListDB.GetMap(Region.MapId);
-                            if (map != null)
-                            {
-                                _gameDatabase.SaveTamer(client);
-                                Client.Send(new MapChange(HostIP, HostPort, Region.MapId, Region.X, Region.Y, map.DisplayName).ToArray());
-                                Client.Send(new SendHandle(Tamer.TamerHandle).ToArray());
-                            }
-                        }
+                    { 
                         break;
-
                     }
                 case 1058: //EMOTICON
                     {
@@ -1645,12 +1254,12 @@ namespace GameServer.Network
                     }
                 case 1325:
                     {
-                        Client.Send(new RidingMode(Tamer.TamerHandle, Tamer.DigimonHandle).ToArray());
+                        Client.Send(new RidingMode(Tamer.UID, Tamer.DigimonUID).ToArray());
                         break;
                     }
                 case 1326:
                     {
-                        Client.Send(new StopRideMode(Tamer.TamerHandle, Tamer.DigimonHandle).ToArray());
+                        Client.Send(new StopRideMode(Tamer.UID, Tamer.DigimonUID).ToArray());
                         break;
                     }
                 case 1501:
@@ -1687,12 +1296,8 @@ namespace GameServer.Network
                         int accessCode = packet.ReadInt();
                         _gameDatabase.LoadUser(client, acctId, accessCode);
                         _gameDatabase.LoadTamer(client);
-                        MakeHandles(client.Tamer, client.time_t);
-                        var CharInfo = new CharInfo(client.Tamer);
-                        Client.Send(CharInfo.ToArray());
-                        File.WriteAllBytes("C:\\CharInfor.packet", CharInfo.ToArray());
-                        //Maps[client.Tamer.Location.Map].Enter(Client);
-                        Maps[client.Tamer.Location.Map].Enter(client);
+                        Tamer.Client = Client;
+                        Maps[client.Tamer.Location.Map].Login.Enqueue(client.Tamer);
                         break;
                     }
                 case 1709:
@@ -1704,12 +1309,8 @@ namespace GameServer.Network
                         Tamer.Location = new Position(Portal);
 
                         Packet MapChange = new MapChange(HostIP, HostPort, Portal, Map.Name);
-                        Packet SendHandle = new SendHandle(Tamer.TamerHandle);
-
-
                         _gameDatabase.SaveTamer(client);
                         Client.Send(MapChange.ToArray());
-                        Client.Send(SendHandle.ToArray());
                         break;
                     }
                 case 1713:
@@ -1720,93 +1321,6 @@ namespace GameServer.Network
                         writer.WriteShort(1);
                         writer.WriteByte(0xFF);
                         Client.Send(writer.Finalize());
-                        break;
-                    }
-                case 2301:
-                    {
-                        string TamerName = packet.ReadString();
-                        GameClient party = FindClient(TamerName);
-                        Character partyTamer = party.Tamer;
-                        PacketWriter request = new PacketWriter();
-                        request.Type(2301);
-                        request.WriteString(Tamer.Name);
-                        party.Client.Send(request.Finalize());
-                        //Party.LeaderName = Tamer.Name;
-                        break;
-                    }
-                case 2302:
-                    {
-                        uint u1 = packet.ReadUInt();
-                        string LeaderName = packet.ReadString();
-                        GameClient party = FindClient(LeaderName);
-
-
-                        if (u1 != 4294967295)
-                        {
-                            Character LeaderTamer = party.Tamer;
-                            PacketWriter writer = new PacketWriter();
-                            party.ActiveParty = new Party();
-                            party.ActiveParty.Clients.Add(party);
-                            party.ActiveParty.Clients.Add(client);
-
-                            PacketWriter leader = new PacketWriter();
-                            leader.Type(2319);
-                            leader.WriteInt(Tamer.Location.Map);
-                            leader.WriteInt(0);
-                            PacketWriter leader2 = new PacketWriter();
-                            leader2.Type(2305);
-                            leader2.WriteInt(1);
-                            leader2.WriteInt((int)Tamer.Model);
-                            leader2.WriteShort((short)Tamer.Level);
-                            leader2.WriteString(Tamer.Name);
-                            leader2.WriteInt(Tamer.Partner.Species);
-                            leader2.WriteShort((short)Tamer.Partner.Level);
-                            leader2.WriteString(Tamer.Partner.Name);
-                            leader2.WriteInt(Tamer.Partner.Handle);
-                            leader2.WriteInt(6);
-                            leader2.WriteInt(0);
-                            leader2.WriteInt(0);
-                            party.Client.Send(Combine(leader.Finalize(), leader2.Finalize()));
-
-                            writer.Type(2310);
-                            writer.WriteInt(LeaderTamer.Location.Map);
-                            writer.WriteUInt(u1);
-                            writer.WriteInt(0);
-                            writer.WriteByte(0);
-                            writer.WriteByte(1);
-                            writer.WriteByte(1);
-                            writer.WriteInt(0);
-                            writer.WriteInt((int)LeaderTamer.Model);
-                            writer.WriteShort((short)LeaderTamer.Level);
-                            writer.WriteString(LeaderTamer.Name);
-                            writer.WriteInt(LeaderTamer.Partner.Species);
-                            writer.WriteShort((short)LeaderTamer.Partner.Level);
-                            writer.WriteString(LeaderTamer.Partner.Name);
-                            writer.WriteInt(LeaderTamer.Partner.Handle);
-                            writer.WriteInt(1);
-                            writer.WriteInt(0);
-                            writer.WriteInt(0);
-                            writer.WriteUInt(4294967295);
-                            client.Client.Send(writer.Finalize());
-                        }
-                        else if (u1 == 4294967295)
-                        {
-                            if (party.ActiveParty.Clients.Count == 0)
-                            {
-                                party.ActiveParty = null;
-                                return;
-                            }
-                        }
-                        break;
-                    }
-                case 2304:
-                    {
-                        string message = packet.ReadString();
-                        PacketWriter writer = new PacketWriter();
-                        writer.Type(2304);
-                        writer.WriteString(Tamer.Name);
-                        writer.WriteString(message);
-                        ActiveParty.Send(writer.Finalize());
                         break;
                     }
                 case 2401: //ADD FRIEND
@@ -1867,7 +1381,6 @@ namespace GameServer.Network
                         {
                             //Archive to Digivice
                             Digimon archiveDigimon = _gameDatabase.LoadDigimon(Tamer.ArchivedDigimon[ArchiveSlot]);
-                            archiveDigimon.Model = GetModel(archiveDigimon.ProperModel());
                             Tamer.ArchivedDigimon[ArchiveSlot] = 0;
                             Tamer.DigimonList[Slot] = archiveDigimon;
 
@@ -1889,7 +1402,6 @@ namespace GameServer.Network
 
                             Digimon Mon2 = _gameDatabase.LoadDigimon(Tamer.ArchivedDigimon[ArchiveSlot]);
                             Tamer.ArchivedDigimon[ArchiveSlot] = Mon1.DigiId;
-                            Mon2.Model = GetModel(Mon2.ProperModel());
                             Tamer.DigimonList[Slot] = Mon2;
                         }
                         _gameDatabase.SaveTamer(client);
@@ -1904,8 +1416,7 @@ namespace GameServer.Network
                         {
                             if (Tamer.ArchivedDigimon[i] == 0) continue;
                             Digimon dMon = _gameDatabase.LoadDigimon(Tamer.ArchivedDigimon[i]);
-                            dMon.Model = GetModel(dMon.ProperModel());
-                            dMon.Handle = Tamer.DigimonHandle;
+                            dMon.UID = Tamer.DigimonUID;
                             ArchivedDigimon.Add(i, dMon);
                         }
                         Client.Send(new Archive(Tamer.ArchiveSize, ArchivedDigimon).ToArray());
@@ -1942,8 +1453,6 @@ namespace GameServer.Network
 9500, 0);
                         if (digiId == 0) return;
                         Digimon mon = _gameDatabase.GetDigimon(digiId);
-                        mon.Model = GetModel(mon.ProperModel());
-
                         for (int i = 0; i < Tamer.DigimonList.Length; i++)
                         {
                             if (Tamer.DigimonList[i] == null)
@@ -1985,7 +1494,7 @@ namespace GameServer.Network
                         if (SpiritCardSlot != -1 && BokoSlot != -1)
                         {
                             writer.WriteByte(1);
-                            writer.WriteInt(Tamer.Inventory[SpiritCardSlot].ItemId); //CARTÃO ESPÍRITO USADO
+                            writer.WriteInt(Tamer.Inventory[SpiritCardSlot].ItemId); //CARTï¿½O ESPï¿½RITO USADO
                             writer.WriteByte(1);
                             writer.WriteInt(Tamer.Inventory[BokoSlot].ItemId); //BOKo USADO
                             if (Tamer.Inventory[SpiritCardSlot].Amount > 1)
@@ -2198,7 +1707,7 @@ namespace GameServer.Network
 
                                 case 9804: //GROWTH FRUIT
                                     {
-                                        ActiveMap.Send(new ChangeSize(Tamer.DigimonHandle, 12500, 0).ToArray());
+                                        ActiveMap.Send(new ChangeSize(Tamer.DigimonUID, 12500, 0).ToArray());
                                         break;
                                     }
 
@@ -2244,13 +1753,13 @@ namespace GameServer.Network
                                             PacketWriter writercontainer = new PacketWriter();
                                             writercontainer.Type(3948);
                                             writercontainer.WriteInt((int)UsedItem.ItemId);
-                                            writercontainer.WriteInt(Tamer.TamerHandle);
+                                            writercontainer.WriteUInt(Tamer.UID);
                                             writercontainer.WriteShort(slot);
                                             switch (container.Type)
                                             {
                                                 case 1:
                                                     {
-                                                        int card = Rand.Next(container.ItemCount);
+                                                        int card = Random.Shared.Next(container.ItemCount);
                                                         writercontainer.WriteInt(1);
                                                         for (int f = 0; f < 1; f++)
                                                         {
@@ -2337,7 +1846,7 @@ namespace GameServer.Network
                         PacketWriter writer3 = new PacketWriter();
                         writer.Type(3904);
                         writer3.Type(1070);
-                        writer3.WriteInt(Tamer.TamerHandle);
+                        writer3.WriteUInt(Tamer.UID);
                         writer3.WriteInt(0);
                         if (Slot1 >= 0 && Slot1 <= 150 && Slot2 >= 0 && Slot2 <= 150)
                         {
@@ -2400,7 +1909,7 @@ namespace GameServer.Network
                             }
                             writer.WriteShort(Slot1);
                             writer.WriteShort(Slot2);
-                            Packet UpdateEquipments = new UpdateEquipment(Tamer.BTamerHandle, 14);
+                            Packet UpdateEquipments = new UpdateEquipment(Tamer.IDX, 14);
                             Client.Send(Combine(writer3.Finalize(), writer.Finalize(), UpdateEquipments.ToArray()));
 
                         }
@@ -2446,7 +1955,7 @@ namespace GameServer.Network
 
                             writer.WriteShort(Slot1);
                             writer.WriteShort(Slot2);
-                            Packet UpdateEquipments = new UpdateEquipment(Tamer.BTamerHandle, 14);
+                            Packet UpdateEquipments = new UpdateEquipment(Tamer.IDX, 14);
                             Client.Send(Combine(writer3.Finalize(), writer.Finalize(), UpdateEquipments.ToArray()));
 
                         }
@@ -2495,7 +2004,7 @@ namespace GameServer.Network
 
                             writer.WriteShort(Slot1);
                             writer.WriteShort(Slot2);
-                            Packet UpdateEquipments = new UpdateEquipment(Tamer.BTamerHandle, (byte)Slot);
+                            Packet UpdateEquipments = new UpdateEquipment(Tamer.IDX, (byte)Slot);
 
 
 
@@ -2525,7 +2034,7 @@ namespace GameServer.Network
 
                             writer.WriteShort(Slot1);
                             writer.WriteShort(Slot2);
-                            Packet UpdateEquipments = new UpdateEquipment(Tamer.BTamerHandle, (byte)Slot);
+                            Packet UpdateEquipments = new UpdateEquipment(Tamer.IDX, (byte)Slot);
 
 
 
@@ -2544,7 +2053,7 @@ namespace GameServer.Network
 
                             writer.WriteShort(Slot1);
                             writer.WriteShort(Slot2);
-                            Packet UpdateEquipments = new UpdateEquipment(Tamer.BTamerHandle, (byte)14);
+                            Packet UpdateEquipments = new UpdateEquipment(Tamer.IDX, (byte)14);
                             Client.Send(Combine(writer3.Finalize(), writer.Finalize(), UpdateEquipments.ToArray()));
 
                         }
@@ -2558,7 +2067,7 @@ namespace GameServer.Network
 
                             writer.WriteShort(Slot1);
                             writer.WriteShort(Slot2);
-                            Packet UpdateEquipments = new UpdateEquipment(Tamer.BTamerHandle, (byte)Slot);
+                            Packet UpdateEquipments = new UpdateEquipment(Tamer.IDX, (byte)Slot);
 
 
 
@@ -2766,195 +2275,9 @@ namespace GameServer.Network
                         Client.Send(new GiftStorage(client.Tamer).ToArray());
                         break;
                     }
-                case 3968:
-                    {
-                        int tamerhandle = packet.ReadInt();
-                        short slot = packet.ReadShort();
-                        PacketWriter writer = new PacketWriter();
-                        writer.Type(3968);
-                        writer.WriteShort(slot);
-                        byte DigitaryPower = (byte)Rand.Next(95, 105);
-                        byte DigiablePowerRenewelNumber = (byte)Rand.Next(5, 30);
-                        writer.WriteByte(DigitaryPower);
-                        writer.WriteByte(DigiablePowerRenewelNumber);
-                        short Stat1_Type = (short)Rand.Next(1, 7);
-                        short Stat2_Type = (short)Rand.Next(1, 7);
-                        short Stat3_Type = (short)Rand.Next(1, 7);
-                        short Stat4_Type = (short)Rand.Next(1, 7);
-                        writer.WriteShort(Stat1_Type);
-                        writer.WriteShort(Stat2_Type);
-                        writer.WriteShort(Stat3_Type);
-                        writer.WriteShort(Stat4_Type);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(5);
-                        writer.WriteByte(32);
-                        writer.WriteByte(3);
-                        writer.WriteByte(5);
-                        writer.WriteByte(0);
-                        writer.WriteByte(44);
-                        writer.WriteByte(1);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        Tamer.Inventory[slot].DigitaryPower = DigitaryPower;
-                        Tamer.Inventory[slot].DigiablePowerRenewelNumber = DigiablePowerRenewelNumber;
-                        Tamer.Inventory[slot].Stat1 = Stat1_Type;
-                        Tamer.Inventory[slot].Stat2 = Stat2_Type;
-                        Tamer.Inventory[slot].Stat3 = Stat3_Type;
-                        Tamer.Inventory[slot].Stat4 = Stat4_Type;
-                        Tamer.Inventory[slot].Stat1_Value = 5;
-                        Tamer.Inventory[slot].Stat2_Value = 800;
-                        Tamer.Inventory[slot].Stat3_Value = 5;
-                        Tamer.Inventory[slot].Stat4_Value = 300;
-                        Client.Send(writer.Finalize());
-
-                        break;
-                    }
-                case 3969:
-                    {
-                        int tamerhandle = packet.ReadInt();
-                        short slot = packet.ReadShort();
-                        short slot2 = packet.ReadShort();
-                        PacketWriter writer = new PacketWriter();
-                        writer.Type(3969);
-                        writer.WriteShort(slot);
-                        writer.WriteShort(slot2);
-                        byte DigitaryPower = (byte)Rand.Next(95, 105);
-                        byte DigiablePowerRenewelNumber = (byte)Rand.Next(5, 30);
-                        writer.WriteByte(DigitaryPower);
-                        writer.WriteByte(DigiablePowerRenewelNumber);
-                        short Stat1_Type = (short)Rand.Next(1, 7);
-                        short Stat2_Type = (short)Rand.Next(1, 7);
-                        short Stat3_Type = (short)Rand.Next(1, 7);
-                        short Stat4_Type = (short)Rand.Next(1, 7);
-                        writer.WriteShort(Stat1_Type);
-                        writer.WriteShort(Stat2_Type);
-                        writer.WriteShort(Stat3_Type);
-                        writer.WriteShort(Stat4_Type);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(5);
-                        writer.WriteByte(32);
-                        writer.WriteByte(3);
-                        writer.WriteByte(5);
-                        writer.WriteByte(0);
-                        writer.WriteByte(44);
-                        writer.WriteByte(1);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        writer.WriteShort(0);
-                        Tamer.Inventory[slot2].DigitaryPower = DigitaryPower;
-                        Tamer.Inventory[slot2].DigiablePowerRenewelNumber = DigiablePowerRenewelNumber;
-                        Tamer.Inventory[slot2].Stat1 = Stat1_Type;
-                        Tamer.Inventory[slot2].Stat2 = Stat2_Type;
-                        Tamer.Inventory[slot2].Stat3 = Stat3_Type;
-                        Tamer.Inventory[slot2].Stat4 = Stat4_Type;
-                        Tamer.Inventory[slot2].Stat1_Value = 5;
-                        Tamer.Inventory[slot2].Stat2_Value = 800;
-                        Tamer.Inventory[slot2].Stat3_Value = 5;
-                        Tamer.Inventory[slot2].Stat4_Value = 300;
-
-                        if (Tamer.Inventory[slot].Amount > 1)
-                        {
-                            Tamer.Inventory[slot].Amount -= 1;
-                        }
-                        else
-                            Tamer.Inventory.Remove(slot);
-                        Client.Send(writer.Finalize());
-                        break;
-                    }
                 case 3979: //REPURCHASE
                     {
                         Client.Send(new Repurchase().ToArray());
-                        break;
-                    }
-                case 3982: // ITEM MAKING
-                    {
-                        int NPCID = packet.ReadInt();
-                        int ItemFromNPC = packet.ReadInt();
-                        int amount = packet.ReadInt();
-                        int u2 = packet.ReadInt();
-                        short u3 = packet.ReadShort();
-                        ItemMaking item = ItemListDB.GetID(ItemFromNPC);
-
-                        if (Tamer.Money >= (item.costprice * amount))
-                        {
-                            Tamer.Money = Tamer.Money - (item.costprice * amount);
-                        }
-                        else
-                            return;
-                        int Chances = item.SuccessRate / 100;
-
-                        int Successed = 0;
-                        if (item != null)
-                        {
-                            PacketWriter writer = new PacketWriter();
-                            Item madeitem = new Item();
-                            madeitem.ItemId = item.ItemID;
-                            writer.Type(3982);
-                            writer.WriteInt(0);
-                            writer.WriteInt(item.ItemID);
-                            for (int s = 0; s < amount; s++)
-                            {
-                                int rand = Rand.Next(0, 100);
-                                if (rand < Chances)
-                                {
-                                    Successed++;
-                                }
-                            }
-                            madeitem.Amount = Successed;
-                            writer.WriteInt(Successed);
-                            writer.WriteInt(0);
-                            int time_t = (int)DateTime.Now.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-                            writer.WriteInt(time_t);
-                            writer.WriteInt(0);
-                            writer.WriteInt(amount);
-                            writer.WriteInt(Successed);
-                            writer.WriteInt(item.neededitems);
-
-                            for (int u = 0; u < item.neededitems; u++)
-                            {
-                                int useditem = item.neededitem[0][u];
-                                writer.WriteInt(item.neededitem[0][u]);
-                                int useditemamount = item.neededitem[1][u] * amount;
-                                writer.WriteInt(item.neededitem[1][u] * amount);
-                                int useditemslot = Tamer.Inventory.FindSlot(useditem);
-                                if (useditemslot != -1 && Tamer.Inventory[useditemslot].Amount >= item.neededitem[1][0] * amount)
-                                {
-                                    if (Tamer.Inventory[useditemslot].Amount == useditemamount)
-                                    {
-                                        Tamer.Inventory.Remove(useditemslot);
-                                    }
-                                    else
-                                    {
-                                        Tamer.Inventory[useditemslot].Amount -= useditemamount;
-                                    }
-                                }
-                                else
-                                    return;
-                            }
-                            if (Tamer.Inventory.FindSlot(item.ItemID) != -1)
-                            {
-                                int slot = Tamer.Inventory.FindSlot(item.ItemID);
-                                Tamer.Inventory[slot].Amount += Successed;
-                            }
-                            else
-                            {
-                                int slot = Tamer.Inventory.Add(madeitem);
-                            }
-                            writer.WriteInt(0);
-                            Client.Send(writer.Finalize());
-                            Client.Send(new Inventory(Tamer).ToArray());
-                        }
-                        else
-                            return;
                         break;
                     }
                 case 3986:
@@ -3006,7 +2329,7 @@ namespace GameServer.Network
                         writer.WriteInt(amount);
                         for (int u = 0; u < amount; u++)
                         {
-                            int card = Rand.Next(0, container.ItemCount);
+                            int card = Random.Shared.Next(0, container.ItemCount);
                             ScannedItems[0][u] = container.Items_ItemID[card];
                             ScannedItems[1][u] = container.Items_Amount[card];
                         }

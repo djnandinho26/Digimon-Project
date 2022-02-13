@@ -7,10 +7,10 @@ namespace Yggdrasil.Packets.Game
 {
     public class UpdateLevel:Packet
     {
-        public UpdateLevel(ushort Handle, byte Level)
+        public UpdateLevel(uint Handle, byte Level)
         {
             packet.Type(1019);
-            packet.WriteInt(Handle);
+            packet.WriteUInt(Handle);
             packet.WriteByte(Level);
         }
 

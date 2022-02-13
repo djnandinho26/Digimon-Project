@@ -59,7 +59,7 @@ namespace Yggdrasil.Entities
         /// <summary>
         /// The handle to the Digimon entity
         /// </summary>
-        public short Handle = 0;
+        public uint UID { get; set; } = 0;
         public byte byteHandle
         {
             get

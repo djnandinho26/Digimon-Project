@@ -19,17 +19,10 @@ namespace Yggdrasil.Packets.Game
             Temporary = 2
         }
 
-        public ChangeSize(ushort handle, int Size, ChangeType Type)
+        public ChangeSize(uint handle, int Size, ChangeType Type)
         {
             packet.Type(9942);
-            packet.WriteInt(handle);
-            packet.WriteInt(Size);
-            packet.WriteShort((short)Type); //Unknown
-        }
-        public ChangeSize(short handle, int Size, ChangeType Type)
-        {
-            packet.Type(9942);
-            packet.WriteInt(handle);
+            packet.WriteUInt(handle);
             packet.WriteInt(Size);
             packet.WriteShort((short)Type); //Unknown
         }

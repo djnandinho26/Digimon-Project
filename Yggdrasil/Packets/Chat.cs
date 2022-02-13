@@ -134,7 +134,7 @@ namespace Yggdrasil.Packets.Game
             packet.Type(1006);
             packet.WriteShort((short)chatType);
             packet.WriteByte(0);
-            packet.WriteUShort(Speaker.TamerHandle);
+            packet.WriteUInt(Speaker.UID);
             packet.WriteInt(Speaker.Location.PosX);
             packet.WriteInt(Speaker.Location.PosY);
             packet.WriteShort(267); //Another Chattype

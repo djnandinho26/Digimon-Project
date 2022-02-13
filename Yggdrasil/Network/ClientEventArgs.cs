@@ -16,21 +16,16 @@ namespace Yggdrasil.Network
 	/// </summary>
 	public class ClientEventArgs : EventArgs
     {
-		private IClient _Client = null;
-        public IClient Client {
-			get {return _Client;}
-			private set {_Client = value;}
-		}
+        public IClient? Client { get; set; } = null;
 
         public ClientEventArgs(IClient client)
         {
-            if (client == null) throw new ArgumentNullException("client");
-            this.Client = client;
+            this.Client = client ?? throw new ArgumentNullException("client");
         }
 
         public override string ToString()
         {
-            return Client.RemoteEndPoint != null
+            return Client?.RemoteEndPoint != null
                 ? Client.RemoteEndPoint.ToString()
                 : "Not Connected";
         }

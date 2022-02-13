@@ -34,7 +34,7 @@ namespace AuthServer.Network
         public void SendHandShakeRes()
         {
             int time_t = (int)DateTime.Now.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-            short data = (short)(Client.handshake ^ 0x7e41);
+            short data = (short)(Client.Handshake ^ 0x7e41);
             PacketWriter writer = new PacketWriter();
             writer.Type(-2);
             writer.WriteShort(data);

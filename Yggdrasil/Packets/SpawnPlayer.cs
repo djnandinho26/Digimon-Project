@@ -16,7 +16,7 @@ namespace Yggdrasil.Packets.Game
             packet.WriteByte(0);
             packet.WriteInt(Tamer.Location.PosX);
             packet.WriteInt(Tamer.Location.PosY);
-            packet.WriteUInt(Tamer.TamerHandle);
+            packet.WriteUInt(Tamer.UID);
             packet.WriteInt((int)Tamer.Model);
             packet.WriteInt(Tamer.Location.PosX);
             packet.WriteInt(Tamer.Location.PosY);
@@ -29,7 +29,7 @@ namespace Yggdrasil.Packets.Game
                 packet.WriteBytes(Tamer.Equipment[i].ToArray());
             packet.WriteInt(0);
             packet.WriteInt(1);
-            packet.WriteInt(Tamer.DigimonHandle);
+            packet.WriteUInt(Tamer.DigimonUID);
             packet.WriteShort(10000);
             packet.WriteInt(0);
             packet.WriteInt(0);
@@ -40,14 +40,14 @@ namespace Yggdrasil.Packets.Game
             packet.WriteByte(0);
         }
 
-        public SpawnPlayer(Digimon Partner, ushort Handle)
+        public SpawnPlayer(Digimon Partner, uint Handle)
         {
             packet.Type(1006);
             packet.WriteShort(259);
             packet.WriteByte(0);
             packet.WriteInt(Partner.Location.PosX);
             packet.WriteInt(Partner.Location.PosY);
-            packet.WriteInt(Partner.Handle);
+            packet.WriteUInt(Partner.UID);
             packet.WriteUInt(Partner.Model);
             packet.WriteInt(Partner.Location.PosX);
             packet.WriteInt(Partner.Location.PosY);
@@ -60,14 +60,14 @@ namespace Yggdrasil.Packets.Game
             packet.WriteShort(0);
         }
 
-        public SpawnPlayer(Character Tamer, ushort TamerHandle)
+        public SpawnPlayer(Character Tamer, uint TamerHandle)
         {
             packet.Type(1006);
             packet.WriteByte(3);
             packet.WriteShort(2);
             packet.WriteInt(Tamer.Partner.Location.PosX);
             packet.WriteInt(Tamer.Partner.Location.PosY);
-            packet.WriteInt(Tamer.Partner.Handle);
+            packet.WriteUInt(Tamer.Partner.UID);
             packet.WriteInt(Tamer.Partner.CurrentForm);
             packet.WriteInt(Tamer.Partner.Location.PosX);
             packet.WriteInt(Tamer.Partner.Location.PosY);
@@ -77,7 +77,7 @@ namespace Yggdrasil.Packets.Game
             packet.WriteUInt(Tamer.Partner.Model);
             packet.WriteShort(Tamer.Partner.Stats.MS);
             packet.WriteShort(Tamer.Partner.Stats.MS);
-            packet.WriteInt(Tamer.TamerHandle);
+            packet.WriteUInt(Tamer.UID);
             packet.WriteByte(255);
             packet.WriteInt(0);
             packet.WriteInt(1);
@@ -87,7 +87,7 @@ namespace Yggdrasil.Packets.Game
             packet.WriteInt(0);
             packet.WriteInt(Tamer.Location.PosX);
             packet.WriteInt(Tamer.Location.PosY);
-            packet.WriteInt(Tamer.TamerHandle);
+            packet.WriteUInt(Tamer.UID);
             packet.WriteInt((int)Tamer.Model);
             packet.WriteInt(Tamer.Location.PosX);
             packet.WriteInt(Tamer.Location.PosY);
@@ -99,7 +99,7 @@ namespace Yggdrasil.Packets.Game
             packet.WriteBytes(Tamer.Equipment.ToArray());
             packet.WriteInt(0);
             packet.WriteInt(0);
-            packet.WriteInt(Tamer.Partner.Handle);
+            packet.WriteUInt(Tamer.Partner.UID);
             packet.WriteShort(10000);
             packet.WriteShort(0);
             packet.WriteByte(0);

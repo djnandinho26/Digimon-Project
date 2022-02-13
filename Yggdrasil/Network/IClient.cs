@@ -8,6 +8,7 @@ using System.Threading;
 using Yggdrasil.Network;
 using Yggdrasil.Entities;
 using Yggdrasil.Helpers;
+using Yggdrasil.Packets;
 
 namespace Yggdrasil.Network
 {
@@ -20,10 +21,14 @@ namespace Yggdrasil.Network
         IPEndPoint RemoteEndPoint { get; }
         IPEndPoint LocalEndPoint { get; }
         IUser User { get; set; }
-        short handshake { get; set; }
+        
+        string Username { get; set; }
+        string Password { get; set; }
+        short Handshake { get; set; }
         Socket _Socket { get; }
         Character Tamer { get; set; }
-        int Send(byte[] buffer);
+        void Send(byte[] buffer);
+        void Send(PacketWriter writer);
         void SendToAll(byte[] buffer);
         void SendToPlayer(string name, byte[] buffer);
         int Send(byte[] buffer, SocketFlags flags);

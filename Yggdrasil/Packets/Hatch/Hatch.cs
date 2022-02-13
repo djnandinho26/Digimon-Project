@@ -15,7 +15,7 @@ namespace Yggdrasil.Packets.Game
         {
             packet.Type(1038);
             packet.WriteInt(slot);
-            packet.WriteInt(Mon.Handle);
+            packet.WriteUInt(Mon.UID);
             packet.WriteInt(Mon.Species);
             packet.WriteString(Mon.Name);
             packet.WriteShort((short)Mon.Size);
@@ -78,7 +78,7 @@ namespace Yggdrasil.Packets.Game
 
         private void Digimon(Digimon Mon)
         {
-            packet.WriteInt(Mon.Handle);
+            packet.WriteUInt(Mon.UID);
             packet.WriteInt(Mon.Species);
             packet.WriteString(Mon.Name);
             packet.WriteShort((short)Mon.Size);
@@ -117,7 +117,7 @@ namespace Yggdrasil.Packets.Game
             }
             packet.WriteInt(1);
             packet.WriteBytes(new byte[52]);
-            packet.WriteInt(Mon.Handle);
+            packet.WriteUInt(Mon.UID);
             packet.WriteByte(0);
         }
     }
@@ -135,10 +135,10 @@ namespace Yggdrasil.Packets.Game
 
     public class Switch : Packet
     {
-        public Switch(short DigimonHandle, byte slot, Digimon Mon1, Digimon Mon2)
+        public Switch(uint DigimonHandle, byte slot, Digimon Mon1, Digimon Mon2)
         {
             packet.Type(1041);
-            packet.WriteInt(DigimonHandle);
+            packet.WriteUInt(DigimonHandle);
             packet.WriteInt(Mon1.Species);
             packet.WriteByte(slot);
             packet.WriteInt(Mon2.Species);

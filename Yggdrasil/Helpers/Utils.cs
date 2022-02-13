@@ -47,7 +47,7 @@ namespace Yggdrasil.Helpers
                 Digimon mon = Tamer.DigimonList[i];
                 mon.Model = GetModel(mon.ProperModel());
             }
-            Tamer.DigimonHandle = Tamer.Partner.Handle;
+            Tamer.DigimonUID = Tamer.Partner.UID;
         }
         */
         /*

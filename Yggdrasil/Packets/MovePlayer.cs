@@ -14,10 +14,10 @@ namespace Yggdrasil.Packets.Game
             packet.Type(1006);
             packet.WriteShort(u);
             packet.WriteByte(0);
-            packet.WriteInt(Tamer.TamerHandle);
+            packet.WriteUInt(Tamer.UID);
             packet.WriteInt(Tamer.Location.PosX);
             packet.WriteInt(Tamer.Location.PosX);
-            packet.WriteInt(Tamer.DigimonHandle);
+            packet.WriteUInt(Tamer.DigimonUID);
             packet.WriteInt(Tamer.Partner.Location.PosX);
             packet.WriteInt(Tamer.Partner.Location.PosY);
             packet.WriteByte(0);
@@ -29,10 +29,10 @@ namespace Yggdrasil.Packets.Game
             packet.Type(1006);
             packet.WriteShort(0x0205);
             packet.WriteByte(0);
-            packet.WriteInt(Tamer.TamerHandle);
+            packet.WriteUInt(Tamer.UID);
             packet.WriteInt(X);
             packet.WriteInt(Y);
-            packet.WriteInt(Tamer.DigimonHandle);
+            packet.WriteUInt(Tamer.DigimonUID);
             packet.WriteInt(Partner.Location.PosX);
             packet.WriteInt(Partner.Location.PosY);
             packet.WriteInt(0);

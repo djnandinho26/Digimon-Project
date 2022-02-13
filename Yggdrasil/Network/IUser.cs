@@ -17,6 +17,6 @@ namespace Yggdrasil.Network
 	/// </summary>
 	public interface IUser
     {
-        IClient Client { get; set; }
+        IClient? Client { get; set; }
     }
 }

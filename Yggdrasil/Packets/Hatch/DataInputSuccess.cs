@@ -11,22 +11,22 @@ namespace Yggdrasil.Packets.Game
         /// Data Input success
         /// </summary>
         /// <param name="Handle"></param>
-        public DataInputSuccess(ushort Handle)
+        public DataInputSuccess(uint Handle)
         {
             packet.Type(1037); //1040
-            packet.WriteInt(Handle);
+            packet.WriteUInt(Handle);
             packet.WriteByte(1);
         }
 
         /// <summary>
         /// Data Input success. Allow the egg to hatch.
         /// </summary>
-        /// <param name="Handle">Tamer Handle</param>
+        /// <param name="Handle">Tamer UID</param>
         /// <param name="Scale">Digimon Scale</param>
-        public DataInputSuccess(ushort Handle, byte Scale)
+        public DataInputSuccess(uint Handle, byte Scale)
         {
             packet.Type(1037);
-            packet.WriteInt(Handle);
+            packet.WriteUInt(Handle);
             packet.WriteByte(Scale);
         }
     }
